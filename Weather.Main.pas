@@ -8,8 +8,8 @@ uses
   System.Net.HttpClient, Vcl.StdCtrls, IPPeerClient, REST.Client,
   Data.Bind.Components, Data.Bind.ObjectScope, Weather.Classes, System.JSON,
   Vcl.ExtCtrls, Vcl.Imaging.pngimage, System.ImageList, Vcl.ImgList, HGM.Button,
-  Direct2D, D2D1, System.Generics.Collections, Vcl.WinXCtrls,
-  HGM.Controls.Labels, HGM.Controls.Labels.Base;
+  Direct2D, D2D1, System.Generics.Collections, HGM.Controls.Labels,
+  HGM.Controls.Labels.Base, Vcl.Menus, HGM.Common.Settings, System.Types;
 
 type
   TFormWeather = class(TForm)
@@ -23,37 +23,41 @@ type
     LabelWind: TLabel;
     LabelCloudiness: TLabel;
     ImageIcon: TImage;
-    ButtonFlatSettings: TButtonFlat;
-    ImageList32: TImageList;
-    ButtonFlatUpdate: TButtonFlat;
     ImageList24: TImageList;
-    PanelSettings: TPanel;
-    EditCity: TEdit;
-    Label1: TLabel;
-    ButtonFlatSetCancel: TButtonFlat;
-    ButtonFlatSetOk: TButtonFlat;
     TimerUpdate: TTimer;
-    LabelError: TLabel;
-    hLabel1: ThLabel;
+    PopupMenu: TPopupMenu;
+    MenuItemFix: TMenuItem;
+    MenuItemSettings: TMenuItem;
+    MenuItemUpdate: TMenuItem;
+    N1: TMenuItem;
+    N2: TMenuItem;
+    TrayIcon: TTrayIcon;
+    MenuItemQuit: TMenuItem;
     procedure FormCreate(Sender: TObject);
-    procedure ButtonFlatUpdateClick(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure FormActivate(Sender: TObject);
-    procedure FormDeactivate(Sender: TObject);
     procedure FormPaint(Sender: TObject);
     procedure FormResize(Sender: TObject);
-    procedure ButtonFlatSetCancelClick(Sender: TObject);
-    procedure ButtonFlatSetOkClick(Sender: TObject);
-    procedure ButtonFlatSettingsClick(Sender: TObject);
     procedure TimerUpdateTimer(Sender: TObject);
     procedure FormMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure RESTRequestAfterExecute(Sender: TCustomRESTRequest);
+    procedure MenuItemFixClick(Sender: TObject);
+    procedure CreateParams(var Params: TCreateParams); override;
+    procedure MenuItemQuitClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure MenuItemSettingsClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
     FWeather: TWeather;
+    FSettings: TSettingsReg;
     FCity: string;
     FRotate: Integer;
-    procedure CreateParams(var Params: TCreateParams); override;
+    FFixIt: Boolean;
+    procedure SetFixIt(const Value: Boolean);
+    property FixIt: Boolean read FFixIt write SetFixIt;
   public
-    { Public declarations }
+    FLocateError: Boolean;
+    FCheckIt: Boolean;
+    procedure UpdateWeather;
   end;
 
 var
@@ -62,7 +66,7 @@ var
 implementation
 
 uses
-  HGM.Common.Utils;
+  HGM.Common.Utils, Math, Weather.Settings;
 
 {$R *.dfm}
 
@@ -88,112 +92,55 @@ begin
     Exit('С');
 end;
 
-procedure TFormWeather.ButtonFlatSetCancelClick(Sender: TObject);
-begin
-  PanelSettings.Hide;
-end;
-
-procedure TFormWeather.ButtonFlatSetOkClick(Sender: TObject);
-begin
-  FCity := EditCity.Text;
-  PanelSettings.Hide;
-  ButtonFlatUpdateClick(nil);
-end;
-
-procedure TFormWeather.ButtonFlatSettingsClick(Sender: TObject);
-begin
-  EditCity.Text := FCity;
-  PanelSettings.Show;
-  PanelSettings.BringToFront;
-end;
-
-procedure TFormWeather.ButtonFlatUpdateClick(Sender: TObject);
-var
-  Mem: TMemoryStream;
-  PNG: TPNGImage;
-  temp: Integer;
-begin
-  RESTRequest.Params.ParameterByName('q').Value := FCity;
-  RESTRequest.Execute;
-  if RESTResponse.StatusCode <> 200 then
-  begin
-    LabelError.Show;
-    ButtonFlatSettingsClick(nil);
-    Exit;
-  end;
-  LabelError.Hide;
-  FWeather.ParseFromJson(TJSONObject(RESTRequest.Response.JSONValue));
-  Mem := DownloadURL('https://openweathermap.org/img/wn/' + FWeather.weather[0].icon + '@2x.png');
-  if Mem.Size > 0 then
-  begin
-    PNG := TPngImage.Create;
-    try
-      PNG.LoadFromStream(Mem);
-      ImageIcon.Picture.Assign(PNG);
-    finally
-      PNG.Free;
-    end;
-  end
-  else
-    ImageIcon.Picture.Assign(nil);
-  Mem.Free;
-
-  LabelLoc.Caption := FWeather.name;
-  temp := Round(FWeather.main.temp - 273.15);
-  LabelTemp.Caption := temp.ToString + '°';
-  if temp > 0 then
-    LabelTemp.Caption := '+' + LabelTemp.Caption;
-  LabelPressure.Caption := Round(FWeather.main.pressure * 0.750062).ToString + ' мм рт.ст.';
-  LabelHumidity.Caption := FWeather.main.humidity.ToString + '%';
-  LabelWind.Caption := FWeather.wind.speed.ToString + ' м/с ' + DegToStr(Round(FWeather.wind.deg));
-  LabelCloudiness.Caption := FWeather.clouds.all.ToString + '%';
-  FRotate := Round(360 - FWeather.wind.deg);
-end;
-
 procedure TFormWeather.CreateParams(var Params: TCreateParams);
 begin
   inherited;
-  Params.Style := Params.Style or WS_BORDER or WS_THICKFRAME;
+  Params.ExStyle := Params.ExStyle or WS_EX_TRANSPARENT;
 end;
 
-procedure TFormWeather.FormActivate(Sender: TObject);
-begin
-  ButtonFlatSettings.Visible := True;
-  ButtonFlatUpdate.Visible := True;
+procedure TFormWeather.FormClose(Sender: TObject; var Action: TCloseAction);
+begin                                                   
+  FSettings.SetBool('HGMWeather', 'Fixed', FixIt);
+  FSettings.SetParamWindow('HGMWeather', Self, [wpsCoord]);
 end;
 
 procedure TFormWeather.FormCreate(Sender: TObject);
 begin
+  FSettings := TSettingsReg.Create(rrHKCU, 'Software\');
   FWeather := TWeather.Create;
+  FLocateError := False;
+  FCheckIt := False;
   FRotate := 0;
-  FCity := 'Междуреченск';
-  PanelSettings.Hide;
-  PanelSettings.BoundsRect := ClientRect;
-  ButtonFlatUpdateClick(nil);
-  Left := Screen.Width - ClientWidth;
-  Top := 0;
-end;
-
-procedure TFormWeather.FormDeactivate(Sender: TObject);
-begin
-  ButtonFlatSettings.Visible := False;
-  ButtonFlatUpdate.Visible := False;
+  Left := Screen.Width - (ClientWidth + 100);
+  Top := 100;
+  FixIt := FSettings.GetBool('HGMWeather', 'Fixed', False);
+  FCity := FSettings.GetStr('HGMWeather', 'Locate', 'Москва');
+  FSettings.GetParamWindow('HGMWeather', Self, [wpsCoord]);
+  UpdateWeather;
+  TimerUpdate.Enabled := not FLocateError;
 end;
 
 procedure TFormWeather.FormDestroy(Sender: TObject);
 begin
+  FSettings.Free;
   FWeather.Free;
 end;
 
 procedure TFormWeather.FormMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
-  ReleaseCapture;
-  SendMessage(Handle, WM_SYSCOMMAND, 61458, 0);
+  if (Button = mbLeft) and (not FixIt) then
+  begin
+    ReleaseCapture;
+    SendMessage(Handle, WM_SYSCOMMAND, 61458, 0);
+  end;
+  if Button = mbRight then
+  begin
+    PopupMenu.Popup(Mouse.CursorPos.X, Mouse.CursorPos.Y);
+  end;
 end;
 
 procedure TFormWeather.FormPaint(Sender: TObject);
 var
-  D2: TDirect2DCanvas;
   ICO: TIcon;
   Pt: TPoint;
   R: TRect;
@@ -226,20 +173,19 @@ begin
     R.Inflate(-3, -3);
     Ellipse(R);
     //
-    Brush.Color := $008A8AFF;
-    Pen.Color := $008A8AFF;
+    Brush.Color := ColorRedOrBlue(Round(100 * ((Min(Max(-50, Round(FWeather.main.temp - 273.15)), 50) + 50) / 100))); //$008A8AFF;
+    Pen.Color := Brush.Color;
     R := TRect.Create(TPoint.Create(10, 80), 30, 30);
     R.Inflate(-5, -5);
     Ellipse(R);
-    //
-    R := TRect.Create(TPoint.Create(10, 80), 30, 30);
     //
     Pen.Width := 1;
     R := TRect.Create(TPoint.Create(10, 80), 30, 30);
     R.Inflate(-10, 0);
     //R.Top := 20;
-    //R.Top := 80;
-    R.Top := 50;
+    //R.Top := 90; 70
+    R.Left := R.Left - 1;
+    R.Top := 90 - Round(70 * ((Min(Max(-50, Round(FWeather.main.temp - 273.15)), 50) + 50) / 100));
     R.Bottom := 100;
     R.Width := R.Width + 1;
     Rectangle(R);
@@ -257,11 +203,87 @@ begin
   Repaint;
 end;
 
+procedure TFormWeather.FormShow(Sender: TObject);
+begin
+  ShowWindow(Application.Handle, SW_HIDE);
+end;
+
+procedure TFormWeather.MenuItemFixClick(Sender: TObject);
+begin
+  FixIt := not FixIt;
+end;
+
+procedure TFormWeather.MenuItemQuitClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TFormWeather.MenuItemSettingsClick(Sender: TObject);
+begin
+  if TFormSettings.Execute(FCity) then
+    FSettings.SetStr('HGMWeather', 'Locate', FCity);
+  UpdateWeather;
+end;
+
+procedure TFormWeather.RESTRequestAfterExecute(Sender: TCustomRESTRequest);
+var
+  Mem: TMemoryStream;
+  PNG: TPNGImage;
+  temp: Integer;
+begin
+  if RESTResponse.StatusCode <> 200 then
+  begin
+    FLocateError := True;
+    Exit;
+  end;
+  FLocateError := False;
+  if FCheckIt then
+    Exit;
+  FWeather.ParseFromJson(TJSONObject(RESTRequest.Response.JSONValue));
+  Mem := DownloadURL('https://openweathermap.org/img/wn/' + FWeather.weather[0].icon + '@2x.png');
+  if Mem.Size > 0 then
+  begin
+    PNG := TPngImage.Create;
+    try
+      PNG.LoadFromStream(Mem);
+      ImageIcon.Picture.Assign(PNG);
+    finally
+      PNG.Free;
+    end;
+  end
+  else
+    ImageIcon.Picture.Assign(nil);
+  Mem.Free;
+
+  LabelLoc.Caption := FCity; //FWeather.name;
+  temp := Round(FWeather.main.temp - 273.15);
+  LabelTemp.Caption := temp.ToString + '°';
+  if temp > 0 then
+    LabelTemp.Caption := '+' + LabelTemp.Caption;
+  LabelPressure.Caption := Round(FWeather.main.pressure * 0.750062).ToString + ' мм рт.ст.';
+  LabelHumidity.Caption := FWeather.main.humidity.ToString + '%';
+  LabelWind.Caption := FWeather.wind.speed.ToString + ' м/с ' + DegToStr(Round(FWeather.wind.deg));
+  LabelCloudiness.Caption := FWeather.clouds.all.ToString + '%';
+  FRotate := Round(360 - FWeather.wind.deg);
+  Repaint;
+end;
+
+procedure TFormWeather.SetFixIt(const Value: Boolean);
+begin
+  FFixIt := Value;
+  AlphaBlend := Value;
+  MenuItemFix.Checked := Value;
+end;
+
 procedure TFormWeather.TimerUpdateTimer(Sender: TObject);
 begin
-  if PanelSettings.Visible then
-    Exit;
-  ButtonFlatUpdateClick(nil);
+  UpdateWeather;
+end;
+
+procedure TFormWeather.UpdateWeather;
+begin
+  RESTRequest.Params.ParameterByName('q').Value := FCity;
+  RESTRequest.ExecuteAsync;
 end;
 
 end.
