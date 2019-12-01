@@ -9,7 +9,8 @@ uses
   Data.Bind.Components, Data.Bind.ObjectScope, Weather.Classes, System.JSON,
   Vcl.ExtCtrls, Vcl.Imaging.pngimage, System.ImageList, Vcl.ImgList, HGM.Button,
   Direct2D, D2D1, System.Generics.Collections, HGM.Controls.Labels,
-  HGM.Controls.Labels.Base, Vcl.Menus, HGM.Common.Settings, System.Types;
+  HGM.Controls.Labels.Base, Vcl.Menus, HGM.Common.Settings, System.Types,
+  Vcl.WinXCtrls;
 
 type
   TFormWeather = class(TForm)
@@ -33,6 +34,8 @@ type
     N2: TMenuItem;
     TrayIcon: TTrayIcon;
     MenuItemQuit: TMenuItem;
+    TimerTesting: TTimer;
+    ActivityIndicator: TActivityIndicator;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormPaint(Sender: TObject);
@@ -46,17 +49,23 @@ type
     procedure FormShow(Sender: TObject);
     procedure MenuItemSettingsClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure TimerTestingTimer(Sender: TObject);
+    procedure MenuItemUpdateClick(Sender: TObject);
   private
     FWeather: TWeather;
     FSettings: TSettingsReg;
     FCity: string;
     FRotate: Integer;
+    FTemp: Integer;
     FFixIt: Boolean;
+    FColor: TColor;
     procedure SetFixIt(const Value: Boolean);
+    procedure SetFontColor(AColor: TColor);
     property FixIt: Boolean read FFixIt write SetFixIt;
   public
     FLocateError: Boolean;
     FCheckIt: Boolean;
+    procedure SetThemeColor(AColor: TColor);
     procedure UpdateWeather;
   end;
 
@@ -99,9 +108,29 @@ begin
 end;
 
 procedure TFormWeather.FormClose(Sender: TObject; var Action: TCloseAction);
-begin                                                   
+begin
   FSettings.SetBool('HGMWeather', 'Fixed', FixIt);
   FSettings.SetParamWindow('HGMWeather', Self, [wpsCoord]);
+  FSettings.SetInt('HGMWeather', 'Color', FColor);
+end;
+
+procedure TFormWeather.SetFontColor(AColor: TColor);
+begin
+  LabelTemp.Font.Color := AColor;
+  LabelLoc.Font.Color := AColor;
+  LabelPressure.Font.Color := AColor;
+  LabelHumidity.Font.Color := AColor;
+  LabelWind.Font.Color := AColor;
+  LabelCloudiness.Font.Color := AColor;
+end;
+
+procedure TFormWeather.SetThemeColor(AColor: TColor);
+var
+  i: Integer;
+begin
+  for i := 0 to ImageList24.Count - 1 do
+    ColorImages(ImageList24, i, AColor);
+  SetFontColor(AColor);
 end;
 
 procedure TFormWeather.FormCreate(Sender: TObject);
@@ -115,7 +144,12 @@ begin
   Top := 100;
   FixIt := FSettings.GetBool('HGMWeather', 'Fixed', False);
   FCity := FSettings.GetStr('HGMWeather', 'Locate', 'Москва');
+  FColor := FSettings.GetInt('HGMWeather', 'Color', clWhite);
   FSettings.GetParamWindow('HGMWeather', Self, [wpsCoord]);
+  SetThemeColor(FColor);
+  ActivityIndicator.Animate := True;
+  ActivityIndicator.IndicatorSize := aisXLarge;
+  ActivityIndicator.IndicatorColor := aicWhite;
   UpdateWeather;
   TimerUpdate.Enabled := not FLocateError;
 end;
@@ -151,7 +185,7 @@ begin
     Pt := Point(LabelWind.Left + LabelWind.Width, LabelWind.Top - 6);
     RenderTarget.SetTransform(TD2D1Matrix3x2F.Rotation(180 + FRotate, Pt.X + 12, Pt.Y + 12));
     ICO := TIcon.Create;
-    ImageList24.GetIcon(7, ICO);
+    ImageList24.GetIcon(4, ICO);
     Draw(Pt.X, Pt.Y, ICO);
     ICO.Free;
     RenderTarget.SetTransform(TD2DMatrix3x2F.Identity);
@@ -173,7 +207,7 @@ begin
     R.Inflate(-3, -3);
     Ellipse(R);
     //
-    Brush.Color := ColorRedOrBlue(Round(100 * ((Min(Max(-50, Round(FWeather.main.temp - 273.15)), 50) + 50) / 100))); //$008A8AFF;
+    Brush.Color := ColorRedOrBlue(Round(100 * ((Min(Max(-50, FTemp), 50) + 50) / 100))); //$008A8AFF;
     Pen.Color := Brush.Color;
     R := TRect.Create(TPoint.Create(10, 80), 30, 30);
     R.Inflate(-5, -5);
@@ -185,7 +219,7 @@ begin
     //R.Top := 20;
     //R.Top := 90; 70
     R.Left := R.Left - 1;
-    R.Top := 90 - Round(70 * ((Min(Max(-50, Round(FWeather.main.temp - 273.15)), 50) + 50) / 100));
+    R.Top := 90 - Round(70 * ((Min(Max(-50, FTemp), 50) + 50) / 100));
     R.Bottom := 100;
     R.Width := R.Width + 1;
     Rectangle(R);
@@ -220,8 +254,22 @@ end;
 
 procedure TFormWeather.MenuItemSettingsClick(Sender: TObject);
 begin
-  if TFormSettings.Execute(FCity) then
+  if TFormSettings.Execute(FCity, FColor) then
+  begin
     FSettings.SetStr('HGMWeather', 'Locate', FCity);
+    FSettings.SetInt('HGMWeather', 'Color', FColor);
+  end;
+  SetThemeColor(FColor);
+  UpdateWeather;
+  Repaint;
+end;
+
+procedure TFormWeather.MenuItemUpdateClick(Sender: TObject);
+begin
+  ActivityIndicator.Animate := True;
+  ActivityIndicator.Visible := True;
+  LabelTemp.Hide;
+  Repaint;
   UpdateWeather;
 end;
 
@@ -229,7 +277,6 @@ procedure TFormWeather.RESTRequestAfterExecute(Sender: TCustomRESTRequest);
 var
   Mem: TMemoryStream;
   PNG: TPNGImage;
-  temp: Integer;
 begin
   if RESTResponse.StatusCode <> 200 then
   begin
@@ -256,15 +303,18 @@ begin
   Mem.Free;
 
   LabelLoc.Caption := FCity; //FWeather.name;
-  temp := Round(FWeather.main.temp - 273.15);
-  LabelTemp.Caption := temp.ToString + '°';
-  if temp > 0 then
+  FTemp := Round(FWeather.main.temp - 273.15);
+  LabelTemp.Caption := FTemp.ToString + '°';
+  if FTemp > 0 then
     LabelTemp.Caption := '+' + LabelTemp.Caption;
   LabelPressure.Caption := Round(FWeather.main.pressure * 0.750062).ToString + ' мм рт.ст.';
   LabelHumidity.Caption := FWeather.main.humidity.ToString + '%';
-  LabelWind.Caption := FWeather.wind.speed.ToString + ' м/с ' + DegToStr(Round(FWeather.wind.deg));
   LabelCloudiness.Caption := FWeather.clouds.all.ToString + '%';
-  FRotate := Round(360 - FWeather.wind.deg);
+  FRotate := Round(FWeather.wind.deg);
+  LabelWind.Caption := FWeather.wind.speed.ToString + ' м/с ' + DegToStr(FRotate);
+  ActivityIndicator.Animate := False;
+  ActivityIndicator.Visible := False;
+  LabelTemp.Visible := True;
   Repaint;
 end;
 
@@ -273,6 +323,25 @@ begin
   FFixIt := Value;
   AlphaBlend := Value;
   MenuItemFix.Checked := Value;
+end;
+
+procedure TFormWeather.TimerTestingTimer(Sender: TObject);
+begin
+
+  FTemp := FTemp + 1;
+  if FTemp >= 60 then
+    FTemp := -60;
+
+  LabelTemp.Caption := FTemp.ToString + '°';
+  if FTemp > 0 then
+    LabelTemp.Caption := '+' + LabelTemp.Caption;
+
+  FRotate := FRotate + 10;
+  if FRotate >= 360 then
+    FRotate := 0;
+  LabelWind.Caption := FWeather.wind.speed.ToString + ' м/с ' + DegToStr(FRotate);
+
+  Repaint;
 end;
 
 procedure TFormWeather.TimerUpdateTimer(Sender: TObject);

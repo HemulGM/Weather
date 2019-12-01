@@ -5,7 +5,8 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
-  Vcl.StdCtrls, HGM.Button, System.ImageList, Vcl.ImgList;
+  Vcl.StdCtrls, HGM.Button, System.ImageList, Vcl.ImgList, Vcl.ExtCtrls,
+  HGM.Controls.Labels;
 
 type
   TFormSettings = class(TForm)
@@ -15,12 +16,16 @@ type
     LabelError: TLabel;
     ImageList24: TImageList;
     EditCity: TEdit;
+    Label2: TLabel;
+    LabelExColor: TLabelEx;
+    ColorDialog: TColorDialog;
     procedure ButtonFlatSetOkClick(Sender: TObject);
     procedure ButtonFlatSetCancelClick(Sender: TObject);
+    procedure LabelExColorClick(Sender: TObject);
   private
     { Private declarations }
   public
-    class function Execute(var City: string): Boolean;
+    class function Execute(var City: string; var AColor: TColor): Boolean;
   end;
 
 var
@@ -58,15 +63,29 @@ begin
   end;
 end;
 
-class function TFormSettings.Execute(var City: string): Boolean;
+class function TFormSettings.Execute(var City: string; var AColor: TColor): Boolean;
 begin
   with TFormSettings.Create(nil) do
   begin
     EditCity.Text := City;
+    LabelExColor.StyledColor(AColor);
     Result := ShowModal = mrOk;
     if Result then
+    begin
       City := EditCity.Text;
+      AColor := LabelExColor.Brush.Color;
+    end;
     Free;
+  end;
+end;
+
+procedure TFormSettings.LabelExColorClick(Sender: TObject);
+begin
+  if ColorDialog.Execute(Handle) then
+  begin
+    LabelExColor.StyledColor(ColorDialog.Color);
+    FormWeather.SetThemeColor(ColorDialog.Color);
+    FormWeather.Repaint;
   end;
 end;
 

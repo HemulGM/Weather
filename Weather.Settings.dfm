@@ -18,7 +18,7 @@ object FormSettings: TFormSettings
   TextHeight = 13
   object Label1: TLabel
     Left = 46
-    Top = 66
+    Top = 31
     Width = 126
     Height = 19
     Caption = #1052#1077#1089#1090#1086#1087#1086#1083#1086#1078#1077#1085#1080#1077
@@ -31,7 +31,7 @@ object FormSettings: TFormSettings
   end
   object LabelError: TLabel
     Left = 41
-    Top = 22
+    Top = 12
     Width = 173
     Height = 16
     Caption = #1052#1077#1089#1090#1086#1087#1086#1083#1086#1078#1077#1085#1080#1077' '#1085#1077' '#1085#1072#1081#1076#1077#1085#1086
@@ -43,9 +43,42 @@ object FormSettings: TFormSettings
     ParentFont = False
     Visible = False
   end
+  object Label2: TLabel
+    Left = 46
+    Top = 83
+    Width = 158
+    Height = 19
+    Caption = #1062#1074#1077#1090' '#1080#1082#1086#1085#1086#1082' '#1080' '#1090#1077#1082#1089#1090#1072
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = 8750469
+    Font.Height = -16
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+  end
+  object LabelExColor: TLabelEx
+    Left = 46
+    Top = 108
+    Width = 164
+    Height = 30
+    Cursor = crHandPoint
+    Brush.Color = 10053222
+    Pen.Color = clSilver
+    Shape = stRoundRect
+    Caption = ''
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWhite
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    TextFormat = [tfCenter, tfSingleLine, tfVerticalCenter, tfWordBreak, tfWordEllipsis]
+    IgnorBounds = True
+    EllipseRectVertical = False
+    OnClick = LabelExColorClick
+  end
   object ButtonFlatSetCancel: TButtonFlat
     Left = 186
-    Top = 121
+    Top = 156
     Width = 24
     Height = 24
     Caption = ''
@@ -85,7 +118,7 @@ object FormSettings: TFormSettings
   end
   object ButtonFlatSetOk: TButtonFlat
     Left = 156
-    Top = 121
+    Top = 156
     Width = 24
     Height = 24
     Caption = ''
@@ -125,7 +158,7 @@ object FormSettings: TFormSettings
   end
   object EditCity: TEdit
     Left = 46
-    Top = 85
+    Top = 50
     Width = 164
     Height = 27
     BevelInner = bvSpace
@@ -146,10 +179,10 @@ object FormSettings: TFormSettings
     ColorDepth = cd32Bit
     Height = 24
     Width = 24
-    Left = 40
-    Top = 136
+    Left = 24
+    Top = 144
     Bitmap = {
-      494C010102006400680018001800FFFFFFFF2100FFFFFFFFFFFFFFFF424D3600
+      494C010102006400700018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000001800000001002000000000000024
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -450,6 +483,12 @@ object FormSettings: TFormSettings
       00000000FFFC0FF8003F000000000000FFFE0FFC183F000000000000FFFF1FFE
       3C7F000000000000FFFFFFFFFFFF000000000000FFFFFFFFFFFF000000000000
       FFFFFFFFFFFF000000000000FFFFFFFFFFFF000000000000FFFFFFFFFFFF0000
-      00000000FFFFFFFFFFFF000000000000}
+      00000000FFFFFFFFFFFF00000000000000000000000000000000000000000000
+      000000000000}
+  end
+  object ColorDialog: TColorDialog
+    Options = [cdFullOpen]
+    Left = 80
+    Top = 144
   end
 end
