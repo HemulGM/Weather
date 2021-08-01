@@ -7,10 +7,10 @@ uses
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   System.Net.HttpClient, Vcl.StdCtrls, IPPeerClient, REST.Client,
   Data.Bind.Components, Data.Bind.ObjectScope, Weather.Classes, System.JSON,
-  Vcl.ExtCtrls, Vcl.Imaging.pngimage, System.ImageList, Vcl.ImgList, HGM.Button,
-  Direct2D, D2D1, System.Generics.Collections, HGM.Controls.Labels,
-  HGM.Controls.Labels.Base, Vcl.Menus, HGM.Common.Settings, System.Types,
-  Vcl.WinXCtrls;
+  Vcl.ExtCtrls, Vcl.Imaging.pngimage, System.ImageList, Vcl.ImgList,
+  Direct2D, D2D1, System.Generics.Collections,
+  Vcl.Menus, HGM.Common.Settings, System.Types,
+  Vcl.WinXCtrls, REST.Types;
 
 type
   TFormWeather = class(TForm)

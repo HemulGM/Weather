@@ -34,7 +34,7 @@ var
 implementation
 
 uses
-  Weather.Main;
+  Weather.Main, System.UITypes;
 
 {$R *.dfm}
 

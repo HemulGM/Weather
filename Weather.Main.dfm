@@ -107,10 +107,9 @@ object FormWeather: TFormWeather
     BaseURL = 'https://api.openweathermap.org/data/2.5'
     Params = <
       item
-        name = 'appid'
+        Name = 'appid'
         Value = '36994c7b370d2e4c0753e34696105d7c'
       end>
-    HandleRedirects = True
     Left = 24
     Top = 19
   end
@@ -118,7 +117,7 @@ object FormWeather: TFormWeather
     Client = RESTClient
     Params = <
       item
-        name = 'q'
+        Name = 'q'
         Value = #1052#1077#1078#1076#1091#1088#1077#1095#1077#1085#1089#1082
       end>
     Resource = 'weather/'
@@ -140,7 +139,7 @@ object FormWeather: TFormWeather
     Left = 160
     Top = 72
     Bitmap = {
-      494C010106006800700018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C010106006800040018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000003000000001002000000000000048
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
