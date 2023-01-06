@@ -48,11 +48,13 @@ object FormWeather: TFormWeather
     OnMouseDown = FormMouseDown
   end
   object LabelTemp: TLabel
-    Left = 51
+    Left = 29
     Top = 40
-    Width = 47
+    Width = 122
     Height = 78
-    Caption = '0'
+    Alignment = taCenter
+    AutoSize = False
+    Caption = '+22*'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWhite
     Font.Height = -48
